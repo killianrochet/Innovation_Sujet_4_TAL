@@ -21,18 +21,23 @@ def use_command(cmd):
  
 def merge_bigram(path):
     df = pnd.read_csv(path, sep="\t", skiprows=2, header=None)
+    # On supprime les lignes #--------------BIGRAMAS dans notre dataframe
     indexNumbers =  df[df[0] == '#--------------BIGRAMAS'].index
     df.drop(indexNumbers, inplace=True)
  
+    # On regroupe les bi-grammes, afin d'enlever les doublons et d'additionner le nbr d'occurence
     new_df = df.groupby([0]).sum().sort_values(by=[1], ascending=False)
     new_df.to_csv('corpus.bi', sep="\t",)
  
-# Permet la génération de phrase
+# Fonction pour générer une phrase
 def made_sentence(path, nbwords):
+    # Stocke le corpus dans un dataframe
     df = pnd.read_csv(path, sep="\t", skiprows=2, header=None)
     # On random pour prendre le premier bigram qui commencera notre phrase
     sentence = random.choice(df[0])
+    # Booléen ; vérifie si le mot qui débute la phrase n'est pas un verbe|nom|adjectif
     word_bool = table_asso(sentence.split(" ")[0], "^[V|N|A].*")
+    # On boucle tant que word_bool == False
     while word_bool == False:
         sentence = random.choice(df[0])
         word_bool = table_asso(sentence.split(" ")[0], "^[V|N|A].*")
@@ -113,26 +118,32 @@ def change_sentence(sentence, query):
     tab_g_tag = []
     tab_word = []
  
+    # Récupère tous les POS TAG du fichier table associative
     all_tag = extract_tagset()
  
+    # Permet de récupérer les POS TAG de tous les mots de notre phrase
     for i in range(len(tab_sentence)):
         tab_tag_word = find_tag_set(tab_sentence[i])
         tab_tag_sentence.append(tab_tag_word)
  
+    # Permet de seulement récupérer les POS TAG type A.* et NCC.*
     for tag in tab_tag_sentence:
         tab_fl = extract_tag_set(tag)
         tab_g_tag.append(tab_fl)
  
-    print(tab_tag_sentence)
-    print(tab_g_tag)
+    # print(tab_tag_sentence)
+    # print(tab_g_tag)
+ 
+    # On récupère les mots qui ont les mêmes POS TAG
     for g_tag in tab_g_tag:
         tab_t = []
         if len(g_tag) != 0:
             tab_t = find_word(g_tag)
         tab_word.append(tab_t)
  
+    # Change les mots de la phrase
     new_sentence = embeddings(tab_word, query, tab_sentence)
-    print(sentence)
+ 
     return new_sentence
  
 def embeddings(tab_word, query, tab_sentence):
@@ -150,18 +161,20 @@ def embeddings(tab_word, query, tab_sentence):
     cpt = 0
     new_sentence = ""
     for liste in tab_word:
+        # S'il y a des POS TAG, cela veut dire que le mot doit être changé
         if len(liste) != 0:
             new_df = pnd.DataFrame(liste)
  
             # On récupère les lignes mot + vecteur si elles correspondent aux mots 
             final = df[df[0].isin(new_df[0])].dropna().reset_index(drop=True)
  
-            # On supprime les mots déjà utilisés pour pas boucler dessus
+            # On supprime les mots déjà utilisés pour ne pas boucler dessus
             for word in new_sentence.split():
                 indexNumbers = final[final[0] == word].index
                 final.drop(indexNumbers, inplace=True)
- 
+            # Récupère le mot le plus proche selon la query
             new_word = change_word(final, float_tuple, query)
+        # S'il n'y pas de POS TAG, cela veut dire que le mot ne va pas changer
         else: 
             new_word = tab_sentence[cpt]
         cpt += 1
@@ -180,9 +193,11 @@ def change_word(df, float_tuple, query):
     cpt = 0
     df['dist'] = 100
  
+    # Pour tous les mots avec le même POS TAG
     for sub in df[1]:
         res = tuple(map(float, sub.split(' ')))
         res = np.array(res)
+        # On calcul la distance entre le vecteur de la query et le vecteur du mot
         dist = distance.euclidean(float_tuple, res)
         #dist = np.linalg.norm(float_tuple - res)
         # On affecte la distance
@@ -192,13 +207,13 @@ def change_word(df, float_tuple, query):
     # on récupère les 5 mots les plus proche
     print(df.sort_values(by = 'dist'))
     df_sort = df.sort_values(by = 'dist').head(5)
-    # On randomise pour savoir quel mot on prend
+    # On randomise pour n'en prendre qu'un
     this_word = df_sort.sample()
  
     return this_word[0].to_string(index = False)
  
  
-# Récupère tous les mots par rapport à un postag
+# Permet de récupérer tous les mots par rapport à un POS TAG
 def find_word(tab_tag):
     tab_word = []
     fichier = open("TableAssociative", "r", encoding="utf8")
@@ -208,7 +223,7 @@ def find_word(tab_tag):
                 tab_word.extend(list(ligne.split(None, 1)[1].replace('\n','').split("\t")))
     return tab_word
  
-# On extrait tous les Pos_tag"
+# Permet d'extraire tous les POS TAG du fichier table associative
 def extract_tagset():
     tab_tagset = []
     fichier = open("TableAssociative", "r", encoding="utf8")
@@ -216,7 +231,7 @@ def extract_tagset():
         tab_tagset.append(ligne.split(None, 1)[0])
     return tab_tagset
  
-# On extrait les tagset du mot
+# Permet à partir d'une liste de POS TAG de ne garder seulement ceux qui sont du type A.* et NCC.* : ce sont les mots avec ces POS TAG que l'on souhaite modifier
 def extract_tag_set(tab_tagset):
     tab_word_tagset = []
     is_Ok = False
@@ -230,7 +245,7 @@ def extract_tag_set(tab_tagset):
     return tab_word_tagset
  
  
-# Prend en paramètre un mot et retourne ses tagsets
+# Permet d'extraire tous les POS TAG d'un mot
 def find_tag_set(word):
     word_type = []
     fichier = open("TableAssociative", "r", encoding="utf8")
@@ -247,6 +262,7 @@ def find_tag_set(word):
     return word_type
  
  
+# Permet de remplacer Le|La|la|le si besoin par l'| L'
 def better_sentence(text):
     regex = r'(Le|La|la|le) '
     regex_voy = r'[aeiouAEIOUéèâyYh]'
@@ -264,8 +280,6 @@ def better_sentence(text):
             else:
                 text = text[:match.start()]+"L'"+text[match.end()-1:]
     return text
- 
- 
  
 if __name__ == '__main__':
     # Temps 
@@ -311,10 +325,7 @@ if __name__ == '__main__':
     #made_sentence("corpus.bi", 8)
     #print(table_asso("et", "^[V|C|D|P|R|Z|S|I].*"))
  
-    # -- Permet de générer une phrase avec les embeddings
-    #gen_sentence_with_query(2,"embeddings-Fr.txt","horreur")
- 
-    # -- Permet de changer le sens de la phrase
+    # -- Permet de changer la sémantique de la phrase selon une query
     sentence = change_sentence("Un beau week-end","Horreur")
     print(sentence)
     #print(better_sentence(sentence))
