@@ -18,3 +18,7 @@ C'est la fonction change_sentence(sentence, query) qui va permettre de changer l
 La fonction prend en argument une phrase et une query.
 
 Exemple : change_sentence("Le beau jeudi", "horreur")
+
+
+/!\ Avant de lancer le programme il faut télécharger les 3 fichiers (corpus.bi,TableAssociative,embeddings-Fr.txt
+) et les mettre dans le même répertoire que le programme python.
